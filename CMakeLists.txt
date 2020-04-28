@@ -136,8 +136,8 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(prism_explore
-  src/prism_explore.cpp
+add_executable(prism_explore_exec
+  src/explore_node.cpp
 )
 
 #add_executable()
@@ -153,7 +153,7 @@ add_executable(prism_explore
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(prism_explore
+target_link_libraries(prism_explore_exec
   ${catkin_LIBRARIES}
 )
 
@@ -191,7 +191,7 @@ target_link_libraries(prism_explore
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(FILES
-  launch/kinect
+  #launch/kinect
   # myfile2
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

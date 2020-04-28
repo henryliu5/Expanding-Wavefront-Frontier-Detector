@@ -1,0 +1,10 @@
+<launch>
+
+  <!-- Finds prism_explore package and extracts yaml file to load params at /[node]/[costmap_2d::Costmap2DROS name]/-->
+  <rosparam file="$(find prism_explore)/params/prism_explore_params.yaml" command="load" ns="/prism_explore_node/explore_costmap" />
+
+  <!-- Simple launch to run the main node-->
+  <!-- Name specifices name of node to be made, uses prism_explore_exec executable type-->
+	<node name="prism_explore_node" pkg="prism_explore" type="prism_explore_exec" output="screen"/>
+
+</launch>

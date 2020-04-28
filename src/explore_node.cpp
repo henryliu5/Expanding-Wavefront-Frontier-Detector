@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
   ros::NodeHandle n;
 
   tf::TransformListener tf(ros::Duration(10));
-  costmap_2d::Costmap2DROS costmap("my_costmap", tf);
+  costmap_2d::Costmap2DROS costmap("explore_costmap", tf);
 
   ros::AsyncSpinner spinner(1);
   spinner.start();
