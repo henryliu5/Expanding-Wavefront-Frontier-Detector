@@ -8,8 +8,17 @@ int main(int argc, char **argv) {
 
   tf::TransformListener tf(ros::Duration(10));
   costmap_2d::Costmap2DROS costmap("explore_costmap", tf);
+  ROS_INFO("cost_map global frame: %s", costmap.getGlobalFrameID().c_str());
+  
 
   costmap_2d::Costmap2D* master_map = costmap.getCostmap();
+
+
+  tf::StampedTransform transform;
+  tf.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(10));
+  tf.lookupTransform("/map", "/base_link", ros::Time(0), transform);
+  ROS_INFO("robot x: %d", transform.getOrigin().x());
+  ROS_INFO("robot y: %d", transform.getOrigin().y());
 
   unsigned int sizeX = master_map->getSizeInCellsX();
   unsigned int sizeY = master_map->getSizeInCellsY();
