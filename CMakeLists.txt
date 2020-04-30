@@ -138,6 +138,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(prism_explore_exec
   src/explore_node.cpp
+  src/frontier_exploration.cpp
 )
 
 #add_executable()
