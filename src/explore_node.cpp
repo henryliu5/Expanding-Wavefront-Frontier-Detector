@@ -3,6 +3,7 @@
 #include "tf/tf.h"
 #include <costmap_2d/costmap_2d_ros.h>
 
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "prism_explore");
@@ -25,13 +26,15 @@ int main(int argc, char** argv)
     FrontierExplore frontierExplore(&costmap, ac);
     std::pair<int, int> coords = frontierExplore.robotMapPos();
 
-
-
     // Test movement
-    frontierExplore.moveToCell(798, 200);
+    //frontierExplore.moveToCell(798, 200);
 
+    // std::pair<int, int> frontier = frontierExplore.frontierSearch();
+    // ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
+    // frontierExplore.moveToCell(frontier.first, frontier.second);
+    ros::Timer timer = n.createTimer(ros::Duration(30), &FrontierExplore::testCb, &frontierExplore);
 
-    ros::AsyncSpinner spinner(1);
+    ros::AsyncSpinner spinner(4);
     spinner.start();
     ros::waitForShutdown();
 
