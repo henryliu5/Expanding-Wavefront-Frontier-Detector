@@ -17,6 +17,9 @@ FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBas
     std::pair<int, int> dimensions = getMapInfo();
     mapX = dimensions.first;
     mapY = dimensions.second;
+    std::vector<bool> temp (mapX * mapY, false);
+    visited = temp;
+    visitedFrontier = temp;
 
     ROS_INFO("cost_map global frame: %s", costmap2dROS_->getGlobalFrameID().c_str());
 }
@@ -40,10 +43,10 @@ void FrontierExplore::moveToCell(int x, int y)
     // Calculate orientation
     Eigen::Quaterniond orient;
     orient = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ());
-    goal.target_pose.pose.orientation.x = orient.x();
-    goal.target_pose.pose.orientation.y = orient.y();
-    goal.target_pose.pose.orientation.z = orient.z();
-    goal.target_pose.pose.orientation.w = orient.w();
+    // goal.target_pose.pose.orientation.x = orient.x();
+    // goal.target_pose.pose.orientation.y = orient.y();
+    // goal.target_pose.pose.orientation.z = orient.z();
+    goal.target_pose.pose.orientation.w = 1;
 
     ROS_INFO("Sending goal to cell (%d, %d)", x, y);
     marker.addMarker(x, y, 2);
@@ -53,33 +56,45 @@ void FrontierExplore::moveToCell(int x, int y)
                 MoveBaseClient::SimpleActiveCallback());
 }
 
+// Callback for moveToCell, runs frontier search and calls moveToCell again
 void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
 {
+    
     ROS_INFO("Finished in state [%s]", state.toString().c_str());
-
+    // We tried moving to this point -- regardless of success or failure remove it from the list of frontiers
+    if(frontierList_.size() > 0){
+        frontierList_.erase(frontierList_.begin());
+        // Check that the frontiers are still frontiers;
+         for(int i = 0; i < frontierList_.size(); i++){
+             pair<int, int> cell = frontierList_[i];
+             if(costmap_->getCost(cell.first, cell.second) == FREE_SPACE){
+                 frontierList_.erase(frontierList_.begin() + i);
+             }
+         }
+    } 
     if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
-        ros::shutdown();
+        // ros::shutdown();
     }   
-    std::pair<int, int> frontier = frontierSearch()[0];
+    frontierSearch();
+    std::pair<int, int> frontier = frontierList_[0];
     ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
     moveToCell(frontier.first, frontier.second);
 }
 
 // Search for frontiers and generate frontier list
-vector<pair<int, int> > FrontierExplore::frontierSearch()
+void FrontierExplore::frontierSearch()
 {
+    std::vector<bool> temp (mapX * mapY, false);
+    visited = temp;
     // Initialize queue and frontier list
     std::queue<std::pair<int, int> > q;
-    std::vector<std::pair<int, int> > result;
-
-    // Shorthand to initialize 2d matrix to all false
-    std::vector<bool> visited(mapX * mapY, false);
-    std::vector<bool> visitedFrontier(mapX * mapY, false);
 
     // Enqueue initial pose
     // TODO Ensure first thing enqueued is always not visited and free space (in case robot missed goal)
     std::pair<int, int> pose = robotMapPos();
-    q.push(pose);
+    if(!visited[costmap_->getIndex(pose.first, pose.second)]){
+        q.push(pose);
+    }
 
     ROS_INFO("starting search");
     while (!q.empty()) {
@@ -107,17 +122,14 @@ vector<pair<int, int> > FrontierExplore::frontierSearch()
                         visited[costmap_->getIndex(x, y)] = true;
                     } else if(isNewFrontier(neighbor, visitedFrontier)){
                         visitedFrontier[costmap_->getIndex(x, y)] = true;
-                        result.push_back(innerSearch(neighbor, visitedFrontier));
+                        frontierList_.push_back(innerSearch(neighbor, visitedFrontier));
                     }
                 }
             }
         }
     }
-    ROS_INFO("search concluded, found %d frontiers", (int)result.size());
-    // for(std::pair<int, int> x: result){
-    //     ROS_INFO("frontiers found: (%d, %d)", x.first, x.second);
-    // }
-    return result;
+    ROS_INFO("search concluded, frontier list size: %d", (int)frontierList_.size());
+    searching = false;
 }
 
 pair<int, int> FrontierExplore::innerSearch(pair<int, int> frontier, vector<bool>& visitedFrontier)

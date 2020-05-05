@@ -15,7 +15,7 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 class FrontierExplore {
 public:
     FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBaseClient& acIn, CellMarker& markIn);
-    std::vector<std::pair<int, int> > frontierSearch();
+    void frontierSearch();
     std::pair<int, int> innerSearch(std::pair<int, int> frontier, std::vector<bool>& visitedFrontier);
     std::pair<int, int> getMapInfo();
     std::pair<int, int> robotMapPos();
@@ -30,6 +30,10 @@ protected:
     CellMarker& marker;
     int mapX;
     int mapY;
+    std::vector<bool> visited;
+    std::vector<bool> visitedFrontier;
+    std::vector< std::pair<int, int> > frontierList_;
+    bool searching;
 };
 
 #endif

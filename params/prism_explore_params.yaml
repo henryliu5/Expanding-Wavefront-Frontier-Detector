@@ -9,7 +9,7 @@ static_map:
 
 obstacles:
     observation_sources: scan
-    combination_method: 0
+    combination_method: 1
     track_unknown_space: true
     scan: {data_type: LaserScan, topic: scan_filtered, marking: true, clearing: true, inf_is_valid: false, obstacle_range: 1000.0, raytrace_range: 1000.0}
     
