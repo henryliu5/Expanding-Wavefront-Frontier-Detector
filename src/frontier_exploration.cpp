@@ -9,58 +9,60 @@ using costmap_2d::NO_INFORMATION;
 using namespace std;
 
 // Constructor
-FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBaseClient& acIn)
-    : ac(acIn)
+FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBaseClient& acIn, CellMarker& markIn)
+    : ac(acIn), marker(markIn)
 {
     costmap2dROS_ = costmap2dROS;
     costmap_ = costmap2dROS->getCostmap();
     std::pair<int, int> dimensions = getMapInfo();
     mapX = dimensions.first;
     mapY = dimensions.second;
-    // for(int x = 0; x < mapX; x++){
-    //     for(int y = 0; y < mapY; y++){
-    //         costmap_->setCost(x, y, -1);
-    //     }
-    // }
 
     ROS_INFO("cost_map global frame: %s", costmap2dROS_->getGlobalFrameID().c_str());
-}
-
-void FrontierExplore::testCb(const ros::TimerEvent& e)
-{
-    std::pair<int, int> frontier = frontierSearch()[0];
-    ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
-    moveToCell(frontier.first, frontier.second);
 }
 
 // Sends move command to navigate to specificed cell
 // Will orient based on the start point
 void FrontierExplore::moveToCell(int x, int y)
 {
-    // Create goa
+    // Create goal
     move_base_msgs::MoveBaseGoal goal;
     goal.target_pose.header.frame_id = "/map";
     goal.target_pose.header.stamp = ros::Time::now();
 
     // Find x and y relative to world
-    double mx, my;
-    costmap_->mapToWorld(x, y, mx, my);
+    double wx, wy;
+    costmap_->mapToWorld(x, y, wx, wy);
 
-    goal.target_pose.pose.position.x = mx;
-    goal.target_pose.pose.position.y = my;
+    goal.target_pose.pose.position.x = wx;
+    goal.target_pose.pose.position.y = wy;
 
     // Calculate orientation
     Eigen::Quaterniond orient;
-    orient = Eigen::AngleAxisd(-atan(-my / mx), Eigen::Vector3d::UnitZ());
+    orient = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ());
     goal.target_pose.pose.orientation.x = orient.x();
     goal.target_pose.pose.orientation.y = orient.y();
     goal.target_pose.pose.orientation.z = orient.z();
     goal.target_pose.pose.orientation.w = orient.w();
 
     ROS_INFO("Sending goal to cell (%d, %d)", x, y);
-    ac.sendGoal(goal);
+    marker.addMarker(x, y, 2);
 
-    //ac.waitForResult();
+    ac.sendGoal(goal,
+                boost::bind(&FrontierExplore::moveCb, this, _1),
+                MoveBaseClient::SimpleActiveCallback());
+}
+
+void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
+{
+    ROS_INFO("Finished in state [%s]", state.toString().c_str());
+
+    if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
+        ros::shutdown();
+    }   
+    std::pair<int, int> frontier = frontierSearch()[0];
+    ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
+    moveToCell(frontier.first, frontier.second);
 }
 
 // Search for frontiers and generate frontier list
@@ -75,6 +77,7 @@ vector<pair<int, int> > FrontierExplore::frontierSearch()
     std::vector<bool> visitedFrontier(mapX * mapY, false);
 
     // Enqueue initial pose
+    // TODO Ensure first thing enqueued is always not visited and free space (in case robot missed goal)
     std::pair<int, int> pose = robotMapPos();
     q.push(pose);
 
@@ -153,6 +156,7 @@ pair<int, int> FrontierExplore::innerSearch(pair<int, int> frontier, vector<bool
     ROS_INFO("Grouped frontier points - total size: %d", thisFrontierSize);
     // Return centroid, allowing for int rounding to fit on cell
     pair<int, int> centroid (sumX / thisFrontierSize, sumY / thisFrontierSize);
+    marker.addMarker(centroid.first, centroid.second, 1);
     return centroid;
 }
 

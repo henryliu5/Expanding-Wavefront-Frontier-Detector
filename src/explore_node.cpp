@@ -1,8 +1,8 @@
 #include "../include/frontier_exploration.h"
+#include "../include/marker.h"
 #include "ros/ros.h"
 #include "tf/tf.h"
 #include <costmap_2d/costmap_2d_ros.h>
-
 
 int main(int argc, char** argv)
 {
@@ -23,16 +23,34 @@ int main(int argc, char** argv)
     // Initialize Costmap2DROS - wrapper for accessing costmap in C++
     costmap_2d::Costmap2DROS costmap("explore_costmap", tf);
 
-    FrontierExplore frontierExplore(&costmap, ac);
+    // Initialize marker publisher and wrapper for frontierExplore
+    ros::Publisher vis_pub = n.advertise<visualization_msgs::MarkerArray>("test_marker", 1);
+    CellMarker marker(&costmap, vis_pub);
+
+    FrontierExplore frontierExplore(&costmap, ac, marker);
     std::pair<int, int> coords = frontierExplore.robotMapPos();
 
-    // Test movement
-    //frontierExplore.moveToCell(798, 200);
 
-    // std::pair<int, int> frontier = frontierExplore.frontierSearch();
-    // ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
-    // frontierExplore.moveToCell(frontier.first, frontier.second);
-    ros::Timer timer = n.createTimer(ros::Duration(30), &FrontierExplore::testCb, &frontierExplore);
+    // for(int i = 0; i < 800; i++){
+    //   for(int j = 0; j < 300; j++){
+    //     marker.addMarker(i, j);
+    //   }
+    // }
+    visualization_msgs::MarkerArray marker_array_msg = marker.getMarkerArray();
+
+    while (vis_pub.getNumSubscribers() < 1) {
+        if (!ros::ok()) {
+            return 0;
+        }
+        ROS_WARN_ONCE("Please create a subscriber to the marker");
+        sleep(1);
+    }
+
+    // Test movement
+
+    std::pair<int, int> pose = frontierExplore.robotMapPos();
+    frontierExplore.moveToCell(pose.first, pose.second);
+
 
     ros::AsyncSpinner spinner(4);
     spinner.start();
