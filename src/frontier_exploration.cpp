@@ -3,7 +3,6 @@
 #include <Eigen/Dense>
 #include <queue>
 
-
 using costmap_2d::FREE_SPACE;
 using costmap_2d::LETHAL_OBSTACLE;
 using costmap_2d::NO_INFORMATION;
@@ -27,8 +26,9 @@ FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBas
     ROS_INFO("cost_map global frame: %s", costmap2dROS_->getGlobalFrameID().c_str());
 }
 
-void FrontierExplore::testCb(const ros::TimerEvent& e){
-    std::pair<int, int> frontier = frontierSearch();
+void FrontierExplore::testCb(const ros::TimerEvent& e)
+{
+    std::pair<int, int> frontier = frontierSearch()[0];
     ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
     moveToCell(frontier.first, frontier.second);
 }
@@ -64,14 +64,15 @@ void FrontierExplore::moveToCell(int x, int y)
 }
 
 // Search for frontiers and generate frontier list
-pair<int, int> FrontierExplore::frontierSearch()
+vector<pair<int, int> > FrontierExplore::frontierSearch()
 {
     // Initialize queue and frontier list
     std::queue<std::pair<int, int> > q;
     std::vector<std::pair<int, int> > result;
 
     // Shorthand to initialize 2d matrix to all false
-    bool visited[mapX][mapY] = { { false } };
+    std::vector<bool> visited(mapX * mapY, false);
+    std::vector<bool> visitedFrontier(mapX * mapY, false);
 
     // Enqueue initial pose
     std::pair<int, int> pose = robotMapPos();
@@ -83,38 +84,103 @@ pair<int, int> FrontierExplore::frontierSearch()
         std::pair<int, int> start = q.front();
         q.pop();
 
-        //ROS_INFO("checking cell (%d, %d), cost is: %d", start.first, start.second, costmap_->getCost(start.first, start.second));
-
-        bool isFrontier = false;
+        bool hasFreeSpaceNeighbor = false;
         // Iterate over neighbors
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 unsigned int x = start.first + dx;
                 unsigned int y = start.second + dy;
-                std::pair<int, int> neighbor (x, y);
+
+                pair<int, int> neighbor(x, y);
                 // Check bounds for neighbor
-                if (x >= 0 && y >= 0 && x < mapX && y < mapY && !visited[x][y]) {
+                if (x >= 0 && y >= 0 && x < mapX && y < mapY && !visited[costmap_->getIndex(x, y)]) {
                     unsigned char cost = costmap_->getCost(x, y);
                     ROS_INFO("checking cell (%d, %d), cost is: %d", x, y, cost);
                     // Check what the neighbor is
-                    if (cost == NO_INFORMATION) {
-                        isFrontier = true;
-                    } else if (cost == FREE_SPACE) {
-                        visited[x][y] = true;
+                    // If the neighbor is free (not visited checked already) then enqueue
+                    if (cost == FREE_SPACE) {
+                        hasFreeSpaceNeighbor = true;
                         q.push(neighbor);
+                        visited[costmap_->getIndex(x, y)] = true;
+                    } else if(isNewFrontier(neighbor, visitedFrontier)){
+                        visitedFrontier[costmap_->getIndex(x, y)] = true;
+                        result.push_back(innerSearch(neighbor, visitedFrontier));
                     }
-                }
-                if(isFrontier){
-                    result.push_back(neighbor);
                 }
             }
         }
     }
-    ROS_INFO("search concluded, found %d frontiers", (int) result.size());
+    ROS_INFO("search concluded, found %d frontiers", (int)result.size());
     // for(std::pair<int, int> x: result){
     //     ROS_INFO("frontiers found: (%d, %d)", x.first, x.second);
     // }
-    return result[0];
+    return result;
+}
+
+pair<int, int> FrontierExplore::innerSearch(pair<int, int> frontier, vector<bool>& visitedFrontier)
+{
+    queue< pair<int, int> > queueF;
+    // Keep track of averages for this group to calculate centroid
+    int sumX = frontier.first;
+    int sumY = frontier.second;
+    int thisFrontierSize = 1;
+    queueF.push(frontier);
+
+    while(!queueF.empty()){
+        std::pair<int, int> start = queueF.front();
+        queueF.pop();
+
+        // Iterate over neighbors
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                unsigned int x = start.first + dx;
+                unsigned int y = start.second + dy;
+
+                pair<int, int> neighbor(x, y);
+                // Check bounds for neighbor
+                if (x >= 0 && y >= 0 && x < mapX && y < mapY) {
+                    if(isNewFrontier(neighbor, visitedFrontier)){
+                        visitedFrontier[costmap_->getIndex(x, y)] = true;
+                        sumX += x;
+                        sumY += y;
+                        thisFrontierSize++;
+                        queueF.push(neighbor);
+                    }
+                }
+            }
+        }
+    }
+    ROS_INFO("Grouped frontier points - total size: %d", thisFrontierSize);
+    // Return centroid, allowing for int rounding to fit on cell
+    pair<int, int> centroid (sumX / thisFrontierSize, sumY / thisFrontierSize);
+    return centroid;
+}
+
+bool FrontierExplore::isNewFrontier(pair<int, int> neighbor, vector<bool>& visitedFrontier)
+{
+    // To be a new frontier point this cell must be unknown and not be part of an existing frontier
+    if(costmap_->getCost(neighbor.first, neighbor.second) != NO_INFORMATION || visitedFrontier[costmap_->getIndex(neighbor.first, neighbor.second)]){
+        return false;
+    }
+
+    // Iterate over neighbors of this cell
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            unsigned int x = neighbor.first + dx;
+            unsigned int y = neighbor.second + dy;
+
+            pair<int, int> neighbor(x, y);
+            // Check bounds for neighbor
+            if (x >= 0 && y >= 0 && x < mapX && y < mapY) {
+                unsigned char cost = costmap_->getCost(x, y);
+                // Check what the neighbor is
+                if (cost == FREE_SPACE) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // Returns pair of ints representing x and y coordinates of the robot's pose on the map

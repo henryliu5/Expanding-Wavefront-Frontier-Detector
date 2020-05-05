@@ -139,6 +139,7 @@ include_directories(
 add_executable(prism_explore_exec
   src/explore_node.cpp
   src/frontier_exploration.cpp
+  src/frontier.cpp
 )
 
 #add_executable()
