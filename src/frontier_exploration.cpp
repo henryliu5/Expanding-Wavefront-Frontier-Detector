@@ -76,9 +76,27 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
         // ros::shutdown();
     }   
     frontierSearch();
-    std::pair<int, int> frontier = frontierList_[0];
-    ROS_INFO("moving to (%d, %d)", frontier.first, frontier.second);
-    moveToCell(frontier.first, frontier.second);
+    // Look for closest frontier to robot pose and move there
+    std::pair<int, int> pose = robotMapPos();
+    unsigned int min = -1;
+    int bestIndex = 0;
+    pair<int, int> closest = frontierList_[0];
+    for(int i = 0; i < frontierList_.size(); i++){
+        pair<int, int> frontier = frontierList_[i];
+        unsigned int dist = sqrt(pow(frontier.first - pose.first, 2.0) + pow(frontier.second - pose.second, 2.0));
+        if(dist < min){
+            closest = frontier;
+            min = dist;
+            bestIndex = i;
+        }
+    }
+    // Move this to the front
+    frontierList_.erase(frontierList_.begin() + bestIndex);
+    frontierList_.insert(frontierList_.begin(), closest);
+
+
+    ROS_INFO("moving to (%d, %d), dist: %f", closest.first, closest.second, sqrt(pow(closest.first, 2.0) + pow(closest.second, 2.0)));
+    moveToCell(closest.first, closest.second);
 }
 
 // Search for frontiers and generate frontier list
@@ -104,9 +122,28 @@ void FrontierExplore::frontierSearch()
 
         bool hasFreeSpaceNeighbor = false;
         // Iterate over neighbors
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                unsigned int x = start.first + dx;
+        for (int dx = -1; dx <= 1; dx += 2) {
+            unsigned int x = start.first + dx;
+            unsigned int y = start.second;
+            pair<int, int> neighbor(x, y);
+               // Check bounds for neighbor
+            if (x >= 0 && y >= 0 && x < mapX && y < mapY && !visited[costmap_->getIndex(x, y)]) {
+                unsigned char cost = costmap_->getCost(x, y);
+                ROS_INFO("checking cell (%d, %d), cost is: %d", x, y, cost);
+                // Check what the neighbor is
+                // If the neighbor is free (not visited checked already) then enqueue
+                if (cost == FREE_SPACE) {
+                    hasFreeSpaceNeighbor = true;
+                    q.push(neighbor);
+                    visited[costmap_->getIndex(x, y)] = true;
+                } else if(isNewFrontier(neighbor, visitedFrontier)){
+                    visitedFrontier[costmap_->getIndex(x, y)] = true;
+                    frontierList_.push_back(innerSearch(neighbor, visitedFrontier));
+               }
+            }
+        }
+        for (int dy = -1; dy <= 1; dy += 2) {
+                unsigned int x = start.first;
                 unsigned int y = start.second + dy;
 
                 pair<int, int> neighbor(x, y);
@@ -126,7 +163,6 @@ void FrontierExplore::frontierSearch()
                     }
                 }
             }
-        }
     }
     ROS_INFO("search concluded, frontier list size: %d", (int)frontierList_.size());
     searching = false;
