@@ -2,6 +2,8 @@
 #include "ros/ros.h"
 #include <Eigen/Dense>
 #include <queue>
+#include <stdlib.h>
+#include <iostream>
 
 using costmap_2d::FREE_SPACE;
 using costmap_2d::LETHAL_OBSTACLE;
@@ -75,6 +77,19 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
     if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
         // ros::shutdown();
     }   
+
+    char input;
+    ROS_INFO("Press 'i' to interrupt frontier exploration, any other key to continue");
+    std::cin >> input;
+    if(input == 'i')
+    {
+        ROS_INFO("Press 'r' to resume frontier exploration");
+        while(input != 'r')
+        {
+            std::cin >> input;
+        }
+    }
+
     frontierSearch();
     // Look for closest frontier to robot pose and move there
     std::pair<int, int> pose = robotMapPos();
