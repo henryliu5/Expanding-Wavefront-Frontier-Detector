@@ -23,7 +23,7 @@ FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBas
     visited = temp;
     visitedFrontier = temp;
 
-    ROS_INFO("cost_map global frame: %s", costmap2dROS_->getGlobalFrameID().c_str());
+    marker.addMarker(0, 0, 3);
 }
 
 // Sends move command to navigate to specificed cell
@@ -42,12 +42,15 @@ void FrontierExplore::moveToCell(int x, int y)
     goal.target_pose.pose.position.x = wx;
     goal.target_pose.pose.position.y = wy;
 
+    pair<int, int> robotCell = robotMapPos();
+
     // Calculate orientation
+    // TODO fix robot angle
     Eigen::Quaterniond orient;
-    orient = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ());
-    // goal.target_pose.pose.orientation.x = orient.x();
-    // goal.target_pose.pose.orientation.y = orient.y();
-    // goal.target_pose.pose.orientation.z = orient.z();
+    orient = Eigen::AngleAxisd(atan2(robotCell.second - wy,robotCell.first - wx), Eigen::Vector3d::UnitZ());
+    goal.target_pose.pose.orientation.x = orient.x();
+    goal.target_pose.pose.orientation.y = orient.y();
+    goal.target_pose.pose.orientation.z = orient.z();
     goal.target_pose.pose.orientation.w = 1;
 
     ROS_INFO("Sending goal to cell (%d, %d)", x, y);
@@ -69,8 +72,10 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
         // Check that the frontiers are still frontiers;
          for(int i = 0; i < frontierList_.size(); i++){
              pair<int, int> cell = frontierList_[i];
+             //marker.addMarker(cell.first, cell.second, 3);
              if(costmap_->getCost(cell.first, cell.second) == FREE_SPACE){
                  frontierList_.erase(frontierList_.begin() + i);
+                 //marker.removeMarker(cell.first, cell.second);
              }
          }
     } 
@@ -91,6 +96,7 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
     }
 
     frontierSearch();
+    // TODO adjust frontier to be in safe spot
     // Look for closest frontier to robot pose and move there
     std::pair<int, int> pose = robotMapPos();
     unsigned int min = -1;
@@ -131,10 +137,10 @@ void FrontierExplore::frontierSearch()
 
     ROS_INFO("starting search");
     while (!q.empty()) {
-
         std::pair<int, int> start = q.front();
         q.pop();
 
+        //marker.addMarker(start.first, start.second, 4);
         bool hasFreeSpaceNeighbor = false;
         // Iterate over neighbors
         for (int dx = -1; dx <= 1; dx += 2) {
@@ -242,6 +248,7 @@ bool FrontierExplore::isNewFrontier(pair<int, int> neighbor, vector<bool>& visit
                 unsigned char cost = costmap_->getCost(x, y);
                 // Check what the neighbor is
                 if (cost == FREE_SPACE) {
+                    //marker.addMarker(x, y, 3);
                     return true;
                 }
             }
