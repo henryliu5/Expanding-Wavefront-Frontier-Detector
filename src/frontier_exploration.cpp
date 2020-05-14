@@ -150,8 +150,8 @@ void FrontierExplore::frontierSearch(pair<int, int> pose)
     while (!q.empty()) {
         std::pair<int, int> start = q.front();
         q.pop();
-
-        //marker.addMarker(start.first, start.second, 4);
+        // if( start.first % 2 == 0 && start.second % 2 == 0)
+        //     marker.addMarker(start.first, start.second, 4);
         bool hasFreeSpaceNeighbor = false;
         // Iterate over neighbors
         for (int dx = -1; dx <= 1; dx += 2) {
