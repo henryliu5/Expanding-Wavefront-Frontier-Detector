@@ -46,15 +46,23 @@ int main(int argc, char** argv)
         sleep(1);
     }
 
-    // Test movement
-
     std::pair<int, int> pose = frontierExplore.robotMapPos();
     frontierExplore.moveToCell(pose.first, pose.second);
 
+    // char input;
+    // ROS_INFO("Press 'i' to interrupt frontier exploration at any time, any other key to continue");
+    // std::cin >> input;
+    // if(input == 'i')
+    // {
+    //     ROS_INFO("Press 'r' to resume frontier exploration");
+    //     while(input != 'r')
+    //     {
+    //         std::cin >> input;
+    //     }
+    // }
 
-    ros::AsyncSpinner spinner(4);
+    ros::AsyncSpinner spinner(1);
     spinner.start();
     ros::waitForShutdown();
-
     return 0;
 }

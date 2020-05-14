@@ -49,8 +49,8 @@ void CellMarker::addMarker(int x, int y, int color)
 
     if (color == 1) {
         // RED
-        marker.scale.x = .04;
-        marker.scale.y = .04;
+        marker.scale.x = .2;
+        marker.scale.y = .2;
         marker.scale.z = .01;
         marker.color.a = 1.0;
         marker.color.r = 1.0;

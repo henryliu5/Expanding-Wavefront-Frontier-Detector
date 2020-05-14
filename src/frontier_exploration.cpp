@@ -64,8 +64,14 @@ void FrontierExplore::moveToCell(int x, int y)
 // Callback for moveToCell, runs frontier search and calls moveToCell again
 void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
 {
-    
     ROS_INFO("Finished in state [%s]", state.toString().c_str());
+    // Check updated costmap state
+
+    // Generate new frontiers from all old boundaries (all frontier points, not  just frontiers)
+    for(int i = 0; i < frontierHistory_.size(); i++){
+        frontierSearch(frontierHistory_[i]);
+    }
+
     // Tried moving to this point -- regardless of success or failure remove it from the list of frontiers
     int removed = 0;
     if(frontierList_.size() > 0){
@@ -74,7 +80,7 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
         vector<pair<int, int> >::iterator i = frontierList_.begin();
         while (i != frontierList_.end()){
             pair<int, int> cell = *i;  
-            marker.addMarker(cell.first, cell.second, 3);
+            //marker.addMarker(cell.first, cell.second, 3);
             if(costmap_->getCost(cell.first, cell.second) == FREE_SPACE){
                 i = frontierList_.erase(i);
                 removed++;
@@ -87,25 +93,13 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
     ROS_INFO("Pruned frontier list of %d frontiers, new frontier list size: %d", removed, (int)frontierList_.size());
     if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
         // ros::shutdown();
-    }   
-
-    char input;
-    ROS_INFO("Press 'i' to interrupt frontier exploration, any other key to continue");
-    std::cin >> input;
-    if(input == 'i')
-    {
-        ROS_INFO("Press 'r' to resume frontier exploration");
-        while(input != 'r')
-        {
-            std::cin >> input;
-        }
-    }
-
-    frontierSearch();
+    }  
+    
     // TODO adjust frontier to be in safe spot
-
     // Look for closest frontier to robot pose and move there
     std::pair<int, int> pose = robotMapPos();
+    // Don't forget to check from robot current position
+    frontierSearch(pose);
     unsigned int min = -1;
     int bestIndex = 0;
     pair<int, int> closest = frontierList_[0];
@@ -122,25 +116,23 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
     frontierList_.erase(frontierList_.begin() + bestIndex);
     frontierList_.insert(frontierList_.begin(), closest);
 
-
     ROS_INFO("moving to (%d, %d), dist: %f", closest.first, closest.second, sqrt(pow(closest.first, 2.0) + pow(closest.second, 2.0)));
     moveToCell(closest.first, closest.second);
 }
 
 // Search for frontiers and generate frontier list
-void FrontierExplore::frontierSearch()
+void FrontierExplore::frontierSearch(pair<int, int> pose)
 {
-    std::vector<bool> temp (mapX * mapY, false);
-    visited = temp;
+
     // Initialize queue and frontier list
     std::queue<std::pair<int, int> > q;
 
     // Enqueue initial pose
     // TODO Ensure first thing enqueued is always not visited and free space (in case robot missed goal)
-    std::pair<int, int> pose = robotMapPos();
-    if(!visited[costmap_->getIndex(pose.first, pose.second)]){
+
+    //if(!visited[costmap_->getIndex(pose.first, pose.second)]){
         q.push(pose);
-    }
+    //}
 
     while (!q.empty()) {
         std::pair<int, int> start = q.front();
@@ -191,7 +183,7 @@ void FrontierExplore::frontierSearch()
                 }
             }
     }
-    ROS_INFO("search concluded, frontier list size: %d", (int)frontierList_.size());
+    //ROS_INFO("search concluded, frontier list size: %d", (int)frontierList_.size());
 }
 
 pair<int, int> FrontierExplore::innerSearch(pair<int, int> frontier, vector<bool>& visitedFrontier)
@@ -254,6 +246,7 @@ bool FrontierExplore::isNewFrontier(pair<int, int> neighbor, vector<bool>& visit
                 // Check what the neighbor is
                 if (cost == FREE_SPACE) {
                     //marker.addMarker(x, y, 3);
+                    frontierHistory_.push_back(neighbor);
                     return true;
                 }
             }
