@@ -31,19 +31,9 @@ int main(int argc, char** argv)
     
     visualization_msgs::MarkerArray marker_array_msg = marker.getMarkerArray();
 
-    // while (vis_pub.getNumSubscribers() < 1) {
-    //     if (!ros::ok()) {
-    //         return 0;
-    //     }
-    //     ROS_WARN_ONCE("Please create a subscriber to the marker");
-    //     sleep(1);
-    // }
-
     // Establish listener to control exploration with keyboard input
     // Simulates an outside input
     ros::AsyncSpinner spinner(2);
-    // std::pair<int, int> pose = frontierExplore.robotMapPos();
-    // frontierExplore.moveToCell(pose.first, pose.second);
     spinner.start();
     ros::waitForShutdown();
     return 0;
