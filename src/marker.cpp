@@ -25,13 +25,18 @@ void CellMarker::addMarker(int x, int y, int color)
     double worldPoseZ = robotPose.getOrigin().z() - 0.2;
 
     std::pair<int, int> pair (x, y);
-    markerMap[pair] = uniqueId;
 
     visualization_msgs::Marker marker;
     marker.header.frame_id = "/map";
     marker.header.stamp = ros::Time();
     marker.ns = "my_namespace";
-    marker.id = uniqueId;
+    if(markerMap.count(pair)){
+        marker.id = markerMap[pair];
+    } else {
+        markerMap[pair] = uniqueId;
+        marker.id = uniqueId;
+        uniqueId++;
+    }
     marker.type = visualization_msgs::Marker::CUBE;
     marker.action = visualization_msgs::Marker::ADD;
     marker.pose.position.x = worldPoseX;
@@ -82,7 +87,6 @@ void CellMarker::addMarker(int x, int y, int color)
     marker_array.markers.push_back(marker);
 
     vis_pub_.publish(marker_array);
-    uniqueId++;
 }
 
 void CellMarker::removeMarker(int x, int y)

@@ -33,7 +33,6 @@ protected:
     std::vector<bool> visited;
     std::vector<bool> visitedFrontier;
     std::vector< std::pair<int, int> > frontierList_;
-    bool searching;
 };
 
 #endif

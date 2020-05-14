@@ -66,19 +66,25 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
 {
     
     ROS_INFO("Finished in state [%s]", state.toString().c_str());
-    // We tried moving to this point -- regardless of success or failure remove it from the list of frontiers
+    // Tried moving to this point -- regardless of success or failure remove it from the list of frontiers
+    int removed = 0;
     if(frontierList_.size() > 0){
         frontierList_.erase(frontierList_.begin());
         // Check that the frontiers are still frontiers;
-         for(int i = 0; i < frontierList_.size(); i++){
-             pair<int, int> cell = frontierList_[i];
-             //marker.addMarker(cell.first, cell.second, 3);
-             if(costmap_->getCost(cell.first, cell.second) == FREE_SPACE){
-                 frontierList_.erase(frontierList_.begin() + i);
-                 //marker.removeMarker(cell.first, cell.second);
-             }
-         }
+        vector<pair<int, int> >::iterator i = frontierList_.begin();
+        while (i != frontierList_.end()){
+            pair<int, int> cell = *i;  
+            marker.addMarker(cell.first, cell.second, 3);
+            if(costmap_->getCost(cell.first, cell.second) == FREE_SPACE){
+                i = frontierList_.erase(i);
+                removed++;
+                marker.removeMarker(cell.first, cell.second);
+            } else {
+                i++;
+            }
+        }
     } 
+    ROS_INFO("Pruned frontier list of %d frontiers, new frontier list size: %d", removed, (int)frontierList_.size());
     if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
         // ros::shutdown();
     }   
@@ -97,6 +103,7 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
 
     frontierSearch();
     // TODO adjust frontier to be in safe spot
+
     // Look for closest frontier to robot pose and move there
     std::pair<int, int> pose = robotMapPos();
     unsigned int min = -1;
@@ -135,7 +142,6 @@ void FrontierExplore::frontierSearch()
         q.push(pose);
     }
 
-    ROS_INFO("starting search");
     while (!q.empty()) {
         std::pair<int, int> start = q.front();
         q.pop();
@@ -160,7 +166,7 @@ void FrontierExplore::frontierSearch()
                 } else if(isNewFrontier(neighbor, visitedFrontier)){
                     visitedFrontier[costmap_->getIndex(x, y)] = true;
                     frontierList_.push_back(innerSearch(neighbor, visitedFrontier));
-               }
+                }
             }
         }
         for (int dy = -1; dy <= 1; dy += 2) {
@@ -186,7 +192,6 @@ void FrontierExplore::frontierSearch()
             }
     }
     ROS_INFO("search concluded, frontier list size: %d", (int)frontierList_.size());
-    searching = false;
 }
 
 pair<int, int> FrontierExplore::innerSearch(pair<int, int> frontier, vector<bool>& visitedFrontier)
