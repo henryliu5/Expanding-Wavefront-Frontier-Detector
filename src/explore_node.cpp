@@ -27,41 +27,23 @@ int main(int argc, char** argv)
     ros::Publisher vis_pub = n.advertise<visualization_msgs::MarkerArray>("test_marker", 1);
     CellMarker marker(&costmap, vis_pub);
 
-    FrontierExplore frontierExplore(&costmap, ac, marker);
-    std::pair<int, int> coords = frontierExplore.robotMapPos();
-
-
-    // for(int i = 0; i < 800; i++){
-    //   for(int j = 0; j < 300; j++){
-    //     marker.addMarker(i, j);
-    //   }
-    // }
+    FrontierExplore frontierExplore(&costmap, ac, marker, n);
+    
     visualization_msgs::MarkerArray marker_array_msg = marker.getMarkerArray();
 
-    while (vis_pub.getNumSubscribers() < 1) {
-        if (!ros::ok()) {
-            return 0;
-        }
-        ROS_WARN_ONCE("Please create a subscriber to the marker");
-        sleep(1);
-    }
-
-    std::pair<int, int> pose = frontierExplore.robotMapPos();
-    frontierExplore.moveToCell(pose.first, pose.second);
-
-    // char input;
-    // ROS_INFO("Press 'i' to interrupt frontier exploration at any time, any other key to continue");
-    // std::cin >> input;
-    // if(input == 'i')
-    // {
-    //     ROS_INFO("Press 'r' to resume frontier exploration");
-    //     while(input != 'r')
-    //     {
-    //         std::cin >> input;
+    // while (vis_pub.getNumSubscribers() < 1) {
+    //     if (!ros::ok()) {
+    //         return 0;
     //     }
+    //     ROS_WARN_ONCE("Please create a subscriber to the marker");
+    //     sleep(1);
     // }
 
-    ros::AsyncSpinner spinner(1);
+    // Establish listener to control exploration with keyboard input
+    // Simulates an outside input
+    ros::AsyncSpinner spinner(2);
+    // std::pair<int, int> pose = frontierExplore.robotMapPos();
+    // frontierExplore.moveToCell(pose.first, pose.second);
     spinner.start();
     ros::waitForShutdown();
     return 0;

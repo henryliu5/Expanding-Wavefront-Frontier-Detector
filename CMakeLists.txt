@@ -53,8 +53,16 @@ add_executable(prism_explore_exec
   src/marker.cpp
 )
 
+add_executable(prism_explore_control
+  src/explore_control.cpp
+)
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(prism_explore_exec
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(prism_explore_control
   ${catkin_LIBRARIES}
 )
 

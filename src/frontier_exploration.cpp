@@ -11,11 +11,12 @@ using costmap_2d::NO_INFORMATION;
 using namespace std;
 
 // Constructor
-FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBaseClient& acIn, CellMarker& markIn)
+FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBaseClient& acIn, CellMarker& markIn, ros::NodeHandle &n)
     : ac(acIn), marker(markIn)
 {
     costmap2dROS_ = costmap2dROS;
     costmap_ = costmap2dROS->getCostmap();
+
     std::pair<int, int> dimensions = getMapInfo();
     mapX = dimensions.first;
     mapY = dimensions.second;
@@ -24,6 +25,11 @@ FrontierExplore::FrontierExplore(costmap_2d::Costmap2DROS* costmap2dROS, MoveBas
     visitedFrontier = temp;
 
     marker.addMarker(0, 0, 3);
+
+    sub = n.subscribe<std_msgs::String>("/prism_explore_node/control", 1000, &FrontierExplore::stateCallback, this);
+    state = true;
+
+    lastGoal = robotMapPos();
 }
 
 // Sends move command to navigate to specificed cell
@@ -55,16 +61,21 @@ void FrontierExplore::moveToCell(int x, int y)
 
     ROS_INFO("Sending goal to cell (%d, %d)", x, y);
     marker.addMarker(x, y, 2);
-
-    ac.sendGoal(goal,
+    if(state){
+        ac.sendGoal(goal,
                 boost::bind(&FrontierExplore::moveCb, this, _1),
                 MoveBaseClient::SimpleActiveCallback());
+        pair<int, int> thisGoal (x,y);
+        lastGoal = thisGoal;
+    } else{
+        ac.sendGoal(goal);
+    }
 }
 
 // Callback for moveToCell, runs frontier search and calls moveToCell again
-void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
+void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& moveState)
 {
-    ROS_INFO("Finished in state [%s]", state.toString().c_str());
+    ROS_INFO("Finished in state [%s]", moveState.toString().c_str());
     // Check updated costmap state
 
     // Generate new frontiers from all old boundaries (all frontier points, not  just frontiers)
@@ -91,7 +102,7 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
         }
     } 
     ROS_INFO("Pruned frontier list of %d frontiers, new frontier list size: %d", removed, (int)frontierList_.size());
-    if(state != actionlib::SimpleClientGoalState::SUCCEEDED){
+    if(moveState != actionlib::SimpleClientGoalState::SUCCEEDED){
         // ros::shutdown();
     }  
     
@@ -116,8 +127,10 @@ void FrontierExplore::moveCb(const actionlib::SimpleClientGoalState& state)
     frontierList_.erase(frontierList_.begin() + bestIndex);
     frontierList_.insert(frontierList_.begin(), closest);
 
-    ROS_INFO("moving to (%d, %d), dist: %f", closest.first, closest.second, sqrt(pow(closest.first, 2.0) + pow(closest.second, 2.0)));
-    moveToCell(closest.first, closest.second);
+    if(state){
+        ROS_INFO("moving to (%d, %d), dist: %f", closest.first, closest.second, sqrt(pow(closest.first, 2.0) + pow(closest.second, 2.0)));
+        moveToCell(closest.first, closest.second);
+    }
 }
 
 // Search for frontiers and generate frontier list
@@ -293,4 +306,20 @@ std::pair<int, int> FrontierExplore::getMapInfo()
     ROS_INFO("resolution: %d", resolution);
     std::pair<int, int> result(sizeX, sizeY);
     return result;
+}
+
+void FrontierExplore::stateCallback(const std_msgs::String::ConstPtr& msg){
+    std::string control = msg->data.c_str();
+    ROS_INFO("%s", control.c_str());
+    
+    if(control == "run"){
+        ROS_INFO("running");
+        state = true;
+        moveToCell(lastGoal.first, lastGoal.second);
+    } else{
+        ROS_INFO("stopping");
+        state = false;
+        pair<int, int> pose = robotMapPos();
+        moveToCell(pose.first, pose.second);
+    }
 }

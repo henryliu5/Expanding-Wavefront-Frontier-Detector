@@ -6,5 +6,6 @@
   <!-- Simple launch to run the main node-->
   <!-- Name specifices name of node to be made, uses prism_explore_exec executable type-->
 	<node name="prism_explore_node" pkg="prism_explore" type="prism_explore_exec" output="screen"/>
+  <node name="prism_explore_controller" pkg="prism_explore" type="prism_explore_control" output="screen"/>
 
 </launch>
